@@ -1,5 +1,7 @@
 # CyTOFmerge
-Merging of two CyTOF datasets with shared markers
+## Merging of two CyTOF datasets with shared markers
+
+The implementation is done in Matlab, provided in 2 functions:
 
 1) function MarkersList = MarkersSelection( FCSFolder,subsets, threshold )
 
