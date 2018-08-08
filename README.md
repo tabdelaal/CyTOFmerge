@@ -15,4 +15,4 @@ This function can be used to combine 2 FCS files having a set of shared markers 
 For full description, please check CombineFCS.m
 
 For citation and further information please refer to this publication:
-"CyTOFmerge: Single-cell mass cytometry marker panel extension"
+"CyTOFmerge: Integrating mass cytometry data across multiple panels"
