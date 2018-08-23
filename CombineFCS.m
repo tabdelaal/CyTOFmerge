@@ -22,6 +22,9 @@ function CombineFCS(FCS1,FCS2, outputfilename)
 %                  2) The shared markers short names (PnN or name2) must be 
 %                  the same in both FCS files, in order to the function to
 %                  identify them and use them for combination.
+%
+% For citation and further information please refer to this publication:
+% "CyTOFmerge: CyTOFmerge: Integrating mass cytometry data across multiple panels"
 
 % get the Markers names of both files
 [fcsdat,fcshdr,~,~] = fca_readfcs(FCS1);
