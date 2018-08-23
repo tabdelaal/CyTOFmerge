@@ -56,7 +56,7 @@ function MarkersList = MarkersSelection( FCSFolder,subsets, threshold )
 %                 others like (Time_event, DNA, Sample_Tag, etc)
 %
 % For citation and further information please refer to this publication:
-% "CyTOFmerge: Single-cell mass cytometry marker panel extension"
+% "CyTOFmerge: CyTOFmerge: Integrating mass cytometry data across multiple panels"
 
 % check number of inputs
 if nargin == 1
