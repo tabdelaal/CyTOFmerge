@@ -10,6 +10,7 @@ MarkerSelection function can be used to provide a reduced set of markers that ca
 For full description, please check the MarkersSelection function description
 
 2) CombineFCS
+
 This function can be used to combine 2 FCS files having a set of shared markers and return one FCS file (matrix) with the total number of cells is equal to the summation of cells in both FCS files, with each cell has an extended number of measured markers.
 
 For full description, please check the CombineFCS function description
