@@ -1,51 +1,64 @@
-function MarkersList = MarkersSelection( FCSFolder,subsets, threshold )
-%MarkerSelection function can be used to provide a reduced set of markers
-%that can describe the cellular composition of a Cytof dataset, this
-%reduced set of markers can be then used as shared markers while designing
-%your 2nd Cytof panel.
+function MarkersList = MarkersSelection( FCSFolder,subsets, arcsinhTrans, SelectionThreshold,CorrThreshold, DownSampleSize )
+% MarkerSelection function can be used to provide a reduced set of markers
+% that can describe the cellular composition of a Cytof dataset, this
+% reduced set of markers can be then used as shared markers while designing
+% your 2nd Cytof panel.
 %
 % Input description
 %
 % FCSFolder: extension of the folder having the FCS files of the Cytof data
 %            from which you want to make the selection
 %
-% subsets:  0 (default) means that the FCS files are the analysed samples
-%           output from the Cytof (no clustering involved), which means
-%           that the selection will only be done using the Distance and the
-%           Nearest Neighbor scores (excluding the Cluster score).
+% subsets:  False (default) = FCS files are the analysed samples output 
+%           from the Cytof (no clustering involved), which means that the 
+%           selection will only be done using the Distance and the Nearest 
+%           Neighbor scores (excluding the Cluster score).
 %
-%           1 means that the FCS files are the subsets (clusters) defining
-%           the different cell types (if your data is already analysed and
-%           clustered), now all three scores will be included in the
+%           True = FCS files are the subsets (clusters) defining the 
+%           different cell populations (if your data is already analysed 
+%           and clustered), now all three scores will be included in the
 %           selection.
+% 
+% arcsinhTrans: True = apply arcsinh transformation with cofactor of 5
+%               prior to any analysis.
+%               False (default) = no transformation applied.
 %
-% threshold: It can be either a value from [0,1[ which sets the threshold
-%            for the used scores to decide the number of markers, the
-%            default is (0.8).
-%            Or it can be an integer value from 2 to "the total number of
-%            markers" - 1. In this case the function will return the
-%            desired number of reduced markers regardless of the
-%            performance scores.
+% Selectionthreshold: It can be either a value from [0,1[ which sets the 
+%                     threshold for the used scores to decide the number of
+%                     markers, the default is (0.8).
+%                     Or it can be an integer value from 2 to "the total 
+%                     number of markers" - 1. In this case the function 
+%                     will return the desired number of reduced markers 
+%                     regardless of the performance scores.
+%
+% CorrThreshold: A value from [0,1[ which sets the threshold used to 
+%                exclude highly correlated markers, the default is (0.7).
+%
+% DownSampleSize: The number of cells randomly selected from the data, to
+%                 speed up the calculation of the pairwise average 
+%                 Euclidean distance, the default is (100,000).
+%                 False = no downsampling applied, the full data is used to
+%                 calculate the the pairwise average Euclidean distance.
 %
 % Markers = MarkersSelection(FCSfolder)
 %           This will return the minimal markers list that can acheive a
-%           minimal threshold of 0.8 for the Distance and the Nearest
-%           Neighbor scores (exluding the Cluster score).
+%           minimal Selectionthreshold of 0.8 for the Distance and the 
+%           Nearest Neighbor scores (exluding the Cluster score). 
 %
 % Markers = MarkersSelection(FCSfolder,1)
 %           This will return the minimal markers list that can acheive a
-%           minimal threshold of 0.8 for all three scores (including
-%           Cluster Score).
+%           minimal Selectionthreshold of 0.8 for all three scores 
+%           (including Cluster Score).
 %
 % Markers = MarkersSelection(FCSfolder,0,0.7)
 %           This will return the minimal markers list that can acheive a
-%           minimal threshold of 0.7 for the Distance and the Nearest
-%           Neighbor scores (exluding the Cluster score).
+%           minimal Selectionthreshold of 0.7 for the Distance and the 
+%           Nearest Neighbor scores (exluding the Cluster score).
 %
 % Markers = MarkersSelection(FCSfolder,1,0.7)
 %           This will return the minimal markers list that can acheive a
-%           minimal threshold of 0.7 for all three scores (including
-%           Cluster Score).
+%           minimal Selectionthreshold of 0.7 for all three scores 
+%           (including Cluster Score).
 %
 % Markers = MarkersSelection(FCSfolder,X,10)
 %           This will return the top 10 markers that can describe the
@@ -56,19 +69,34 @@ function MarkersList = MarkersSelection( FCSFolder,subsets, threshold )
 %                 others like (Time_event, DNA, Sample_Tag, etc)
 %
 % For citation and further information please refer to this publication:
-% "CyTOFmerge: CyTOFmerge: Integrating mass cytometry data across multiple panels"
+% "CyTOFmerge: Integrating mass cytometry data across multiple panels"
 
 % check number of inputs
 if nargin == 1
     subsets = 0;
-    threshold = 0.8;
+    arcsinhTrans = 0;
+    SelectionThreshold = 0.8;
+    CorrThreshold = 0.7;
+    DownSampleSize = 100000;
 elseif nargin == 2
-    threshold = 0.8;
+    arcsinhTrans = 0;
+    SelectionThreshold = 0.8;
+    CorrThreshold = 0.7;
+    DownSampleSize = 100000;
+elseif nargin == 3
+    SelectionThreshold = 0.8;
+    CorrThreshold = 0.7;
+    DownSampleSize = 100000;
+elseif nargin == 4
+    CorrThreshold = 0.7;
+    DownSampleSize = 100000;
+elseif nargin == 5
+    DownSampleSize = 100000;
 end
 
-% check Threshold validity
+% check SelectionThreshold validity
 if nargin == 3
-    if (threshold >= 1 && threshold < 2 || threshold >=2 && threshold ~= floor(threshold))
+    if (SelectionThreshold >= 1 && SelectionThreshold < 2 || SelectionThreshold >=2 && SelectionThreshold ~= floor(SelectionThreshold))
         msgbox('Threshold must be a decimal value between [0,1[, or an integer >= 2','Error');
         return
     end
@@ -81,34 +109,39 @@ else
     [Data,VarNames,~] = loadFCS(FCSFolder,subsets);
 end
 
-[Data, VarNames,DeletedD, DeletedN]= PreProcessing(Data, VarNames);
+% apply arcsinh transformation
+if(arcsinhTrans)
+    Data = asinh(Data/5);
+end
+
+% Filter highly correlated markers
+[Data, VarNames,DeletedD, DeletedN]= PreProcessing(Data, VarNames,CorrThreshold);
 
 disp('Removed by preprocessing')
 Removed_Markers=DeletedN
 
-% check if threshold is a desired number of markers
-if (threshold >=2 && threshold == floor(threshold))
-    [loading,~,latent,~,~,~] = pca(Data,'Algorithm','eig','NumComponents',threshold);
-    loadingSqr = (loading.^2)*latent(1:threshold);
-    loadingEffect = sum(loadingSqr,2);
-    [~,rank_PCA] = sort(loadingEffect,'descend');
-    MarkersList = VarNames(rank_PCA(1:C));
+% Check if the Selectionthreshold is a desired number of markers
+if (SelectionThreshold >=2 && SelectionThreshold == floor(SelectionThreshold))
+    [loading,~,latent,~,~,~] = pca(Data,'Algorithm','eig','NumComponents',SelectionThreshold);
+    Importance = (loading.^2)*latent(1:SelectionThreshold);
+    [~,rank_PCA] = sort(Importance,'descend');
+    MarkersList = VarNames(rank_PCA(1:SelectionThreshold));
     return
 end
 
+% Continue here if the SelectionThreshold is between [0,1[ 
 rank=zeros(size(Data,2),size(Data,2));
 VarNamesRed=struct('name',[]);      % Contains Selected Markers Names
 for i=1:size(Data,2)
     [loading,~,latent,~,~,~] = pca(Data,'Algorithm','eig','NumComponents',i);
-    loadingSqr = (loading.^2)*latent(1:i);
-    loadingEffect = sum(loadingSqr,2);
-    [~,rank_PCA] = sort(loadingEffect,'descend');
+    Importance = (loading.^2)*latent(1:i);
+    [~,rank_PCA] = sort(Importance,'descend');
     rank(:,i)=rank_PCA;
     VarNamesRed(i).name = VarNames(rank(1:i,i));
 end
 clear i
 
-y=scree(latent,1-threshold);
+y=scree(latent,1-SelectionThreshold);
 
 % Evaluation to find m
 Cluster_Score=0;
@@ -116,11 +149,20 @@ Distance_Score=0;
 NN_Score=0;
 
 [X1,X2]=randID(Data);
-Euc_Dist_Avg = RandomEuclideanDistance([Data([X1 X2],:) DeletedD([X1 X2],:)]);
+
+if(DownSampleSize == False || DownSampleSize > size(Data,1))
+   DownSampleSize = size(Data,1); 
+end
+Temp_Data = [Data DeletedD];
+Temp_Data = Temp_Data(randperm(size(Temp_Data,1),DownSampleSize),:);
+
+% Calculate the average pairwise Euclidean distance (takes long time)
+Euc_Dist_Avg = RandomEuclideanDistance(Temp_Data);
 
 m = size(y,1)-1;
-while (Distance_Score < threshold || NN_Score < threshold || (subsets && Cluster_Score < threshold))
+while (Distance_Score < SelectionThreshold || NN_Score < SelectionThreshold || (subsets && Cluster_Score < SelectionThreshold))
     m=m+1;
+    % Simulate the two overlapping datasets
     Cut_Index=floor((size(Data,2)+size(DeletedD,2)-m)/2)+m;
     Data1=Data(X1,[rank(1:m,m); rank(m+1:Cut_Index,m)]);
     Data2=[Data(X2,[rank(1:m,m); rank(Cut_Index+1:end,m)]) DeletedD(X2,:)];
@@ -130,9 +172,11 @@ while (Distance_Score < threshold || NN_Score < threshold || (subsets && Cluster
         Clus_ID2=Clus_ID(X2);
         Clus_ID_sorted = Clus_ID([X1 X2]);
     end
-    euc_dist=zeros(size(Data_sorted,1),1);
+    
+    % Find the 1st NN in the original dataset
     [~,NN_Dist]=knnsearch(Data_sorted,Data_sorted,'K',2,'Distance','euclidean');
     
+    % Find the 50 neighbors from one dataset to the other
     [IDX1]=knnsearch(Data2(:,1:m),Data1(:,1:m),'K',50,'Distance','euclidean');
     [IDX2]=knnsearch(Data1(:,1:m),Data2(:,1:m),'K',50,'Distance','euclidean');
     
@@ -143,6 +187,7 @@ while (Distance_Score < threshold || NN_Score < threshold || (subsets && Cluster
         Clus_ID_combine2=zeros(size(Data2,1),1);
     end
     
+    % Combine datasets
     for i=1:size(Data1,1)
         Data_combine1(i,1:m)=Data1(i,1:m);
         Data_combine1(i,m+1:Cut_Index)=Data1(i,m+1:end);
@@ -166,6 +211,7 @@ while (Distance_Score < threshold || NN_Score < threshold || (subsets && Cluster
     Data_combine=[Data_combine1; Data_combine2];
     Clus_ID_combine = [Clus_ID_combine1; Clus_ID_combine2];
     
+    % Calculate evaluation scores
     %SCA
     if subsets
         Cluster_Score=0;
@@ -179,10 +225,7 @@ while (Distance_Score < threshold || NN_Score < threshold || (subsets && Cluster
     end
     
     % Euc_dist
-    for i=1:size(Data_combine,1)
-        euc_dist(i)=sqrt(sum((Data_sorted(i,:) - Data_combine(i,:)).^2));
-    end
-    clear i
+    euc_dist = sqrt(sum((Data_Sorted - Data_combine).^2,2));
     Distance_Score = (median(Euc_Dist_Avg)-median(euc_dist))/median(Euc_Dist_Avg);
     
     % points nearer than the 1st NN
@@ -301,9 +344,10 @@ end
 function Euc_Dist_Avg = RandomEuclideanDistance(D)
 
 Euc_Dist=zeros(size(D,1),1);
-parfor i=1:size(D,1)
-    for j=1:size(D,1)
+for i=1:size(D,1)
+    for j=i:size(D,1)
         Euc_Dist(i)=Euc_Dist(i)+sqrt(sum((D(i,:) - D(j,:)) .^ 2));
+        Euc_Dist(j)=Euc_Dist(j)+sqrt(sum((D(i,:) - D(j,:)) .^ 2));
     end
 end
 clear i j
