@@ -1,4 +1,4 @@
-function CombineFCS(FCS1,FCS2, outputfilename)
+function CombineFCS(FCS1,FCS2,arcsinhTrans, outputfilename)
 % This function can be used to combine 2 FCS files having a set of shared
 % markers and return one FCS file with the total number of cells is equal
 % to the summation of cells in both FCS files, with each cell has an
@@ -8,6 +8,10 @@ function CombineFCS(FCS1,FCS2, outputfilename)
 % FCS1: Name (full name with directory) of the first FCS file
 %
 % FCS2: Name (full name with directory) of the second FCS file
+%
+% arcsinhTrans: True = apply arcsinh transformation with cofactor of 5
+%               prior to files combination.
+%               False = no transformation applied.
 %
 % outputfilename: It is the desired file name for the combined output FCS
 %                 file, with the '.fcs' extension.
@@ -24,9 +28,9 @@ function CombineFCS(FCS1,FCS2, outputfilename)
 %                  identify them and use them for combination.
 %
 % For citation and further information please refer to this publication:
-% "CyTOFmerge: CyTOFmerge: Integrating mass cytometry data across multiple panels"
+% "CyTOFmerge: Integrating mass cytometry data across multiple panels"
 
-% get the Markers names of both files
+% Load data and get the Markers names of both files
 [fcsdat,fcshdr,~,~] = fca_readfcs(FCS1);
 VarNames1=cellstr(char(fcshdr.par.name2));
 checked1 = SelectionFigure(VarNames1, 1);
@@ -39,7 +43,13 @@ checked2 = SelectionFigure(VarNames2, 2);
 Data2=fcsdat(:,checked2);
 VarNames2=VarNames2(checked2);
 
-%find shared Markers
+% apply arcsinh transformation
+if(arcsinhTrans)
+    Data1 = asinh(Data1/5);
+    Data2 = asinh(Data2/5);
+end
+
+% Find shared Markers
 Matches=zeros(length(VarNames1),1);
 for i=1:length(VarNames1)
     if (nnz(strcmp(VarNames2,VarNames1(i)))==0)
@@ -49,7 +59,7 @@ for i=1:length(VarNames1)
     end
 end
 
-%Reorder Data
+% Reorder Data
 Shared_Index=find(Matches>0);
 Data1_NonShared=Data1;
 Data1_NonShared(:,Shared_Index)=[];
